@@ -15,7 +15,12 @@
 #include <netinet/in.h>
 #include <netdb.h>
 #include <poll.h>
+
+#ifdef __APPLE__
+#include <architecture/byte_order.h>
+#else
 #include <endian.h>
+#endif
 
 #include "shared_serial/LxSerial.h"
 
@@ -111,7 +116,7 @@ bool LxSerial::port_open(const std::string& portname, LxSerial::PortType port_ty
 	else
 	{
 		// Open port
-		hPort = open(portname.c_str(), O_RDWR | O_NOCTTY);//|O_NDELAY);						// open the serial device
+		hPort = open(portname.c_str(), O_RDWR | O_NOCTTY | O_NDELAY);						// open the serial device
 																				// O_RDWR = open read an write
 																				// The O_NOCTTY flag tells UNIX that this program doesn't want to be the "controlling terminal" for that 
 																				// port. If you don't specify this then any input (such as keyboard abort signals and so forth) will affect 
@@ -219,6 +224,14 @@ bool	LxSerial::set_speed( LxSerial::PortSpeed baudrate )
 	if (b_socket)
 		return false;
 
+#ifdef __APPLE__
+	int speed = baudrate;
+	if ( ioctl( hPort, IOSSIOSPEED, &speed ) == -1 )
+	{
+		perror("Error: Could not set serial port baudrate");
+		return false;
+	}
+#else
 	cfsetispeed(&options, baudrate);								//set incoming baud rate
 	cfsetospeed(&options, baudrate);								//set outgoing baud rate
 
@@ -228,6 +241,7 @@ bool	LxSerial::set_speed( LxSerial::PortSpeed baudrate )
 	}
 	usleep(100);													// additional wait for correct functionality
 	tcflush(hPort, TCIOFLUSH);										// flush terminal data
+#endif
 	return true;
 }
 
